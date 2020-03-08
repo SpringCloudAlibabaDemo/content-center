@@ -1,5 +1,6 @@
 package com.just.contentcenter.service.content;
 
+import com.alibaba.fastjson.JSON;
 import com.just.contentcenter.dao.content.RocketmqTransactionLogMapper;
 import com.just.contentcenter.dao.content.ShareMapper;
 import com.just.contentcenter.domain.dto.content.ShareAuditDTO;
@@ -18,6 +19,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.cloud.stream.messaging.Source;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +56,9 @@ public class ShareService {
 
     @Autowired
     private RocketmqTransactionLogMapper rocketmqTransactionLogMapper;
+
+    @Autowired
+    private Source source;
 
     public ShareDTO findById(Integer id) {
         Share share = shareMapper.selectByPrimaryKey(id);
@@ -98,7 +103,25 @@ public class ShareService {
         if (AuditStatusEnum.PASS.equals(shareAuditDTO.getAuditStatusEnum())) {
             //发送半消息
             String transactionId = UUID.randomUUID().toString();
-            rocketMQTemplate.sendMessageInTransaction(
+
+            source.output()
+                    .send(
+                            MessageBuilder
+                                    .withPayload(
+                                            UserAddBonusMsgDTO.builder()
+                                                    .userId(share.getUserId())
+                                                    .bonus(50)
+                                                    .build()
+                                    )
+                                    .setHeader(RocketMQHeaders.TRANSACTION_ID, transactionId)
+                                    .setHeader("share_id", id)
+                                    .setHeader("dto", JSON.toJSONString(shareAuditDTO))
+                                    .build()
+                    );
+
+            // TODO 下面spring消息模型
+
+            /*rocketMQTemplate.sendMessageInTransaction(
                     "tx-add-bonus-group",
                     "add-bonus",
                     MessageBuilder
@@ -112,9 +135,9 @@ public class ShareService {
                             .setHeader("share_id", id)
                             .build(),
                     shareAuditDTO
-            );
+            );*/
         } else {
-            this.auditById(id,shareAuditDTO);
+            this.auditById(id, shareAuditDTO);
         }
 
         //2审核资源
@@ -130,7 +153,7 @@ public class ShareService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void auditByIdInDB(Integer id,ShareAuditDTO shareAuditDTO) {
+    public void auditByIdInDB(Integer id, ShareAuditDTO shareAuditDTO) {
         Share share = Share.builder()
                 .id(id)
                 .auditStatus(shareAuditDTO.getAuditStatusEnum().toString())
@@ -140,8 +163,8 @@ public class ShareService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void auditByIdWithRocketMqLog(Integer id,ShareAuditDTO shareAuditDTO,String transactionId){
-        auditByIdInDB(id,shareAuditDTO);
+    public void auditByIdWithRocketMqLog(Integer id, ShareAuditDTO shareAuditDTO, String transactionId) {
+        auditByIdInDB(id, shareAuditDTO);
         rocketmqTransactionLogMapper.insertSelective(
                 RocketmqTransactionLog.builder()
                         .transactionId(transactionId)

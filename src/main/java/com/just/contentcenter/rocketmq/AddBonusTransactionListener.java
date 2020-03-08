@@ -1,9 +1,11 @@
 package com.just.contentcenter.rocketmq;
 
+import com.alibaba.fastjson.JSON;
 import com.just.contentcenter.dao.content.RocketmqTransactionLogMapper;
 import com.just.contentcenter.domain.dto.content.ShareAuditDTO;
 import com.just.contentcenter.domain.entity.content.RocketmqTransactionLog;
 import com.just.contentcenter.service.content.ShareService;
+import lombok.val;
 import org.apache.rocketmq.spring.annotation.RocketMQTransactionListener;
 import org.apache.rocketmq.spring.core.RocketMQLocalTransactionListener;
 import org.apache.rocketmq.spring.core.RocketMQLocalTransactionState;
@@ -27,8 +29,10 @@ public class AddBonusTransactionListener implements RocketMQLocalTransactionList
         MessageHeaders headers = msg.getHeaders();
         String transactionId = (String) headers.get(RocketMQHeaders.TRANSACTION_ID);
         Integer shareId = Integer.valueOf((String) headers.get("share_id"));
+        String dtoString =(String) headers.get("dto");
+        ShareAuditDTO shareAuditDTO = JSON.parseObject(dtoString, ShareAuditDTO.class);
         try {
-            shareService.auditByIdWithRocketMqLog(shareId, (ShareAuditDTO) arg, transactionId);
+            shareService.auditByIdWithRocketMqLog(shareId, shareAuditDTO, transactionId);
             return RocketMQLocalTransactionState.COMMIT;
         } catch (Exception e) {
             return RocketMQLocalTransactionState.ROLLBACK;

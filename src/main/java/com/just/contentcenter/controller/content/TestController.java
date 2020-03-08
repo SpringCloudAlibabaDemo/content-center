@@ -1,5 +1,6 @@
 package com.just.contentcenter.controller.content;
 
+import com.just.contentcenter.rocketmq.MySource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -28,7 +29,7 @@ public class TestController {
         return instances;
     }
 
-    @Autowired
+    /*@Autowired
     private Source source;
 
     @GetMapping("test-stream")
@@ -41,4 +42,18 @@ public class TestController {
                 );
         return "success";
     }
+
+    @Autowired
+    private MySource mySource;
+
+    @GetMapping("test-stream-2")
+    public String testStream2() {
+        mySource.output()
+                .send(
+                        MessageBuilder
+                                .withPayload("消息体")
+                                .build()
+                );
+        return "success";
+    }*/
 }
